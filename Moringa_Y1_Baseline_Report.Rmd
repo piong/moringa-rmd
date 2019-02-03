@@ -1,0 +1,696 @@
+---
+title: "Moringa Baseline Household Report, 2018"
+author: "WARC - Anthea Piong"
+date: "10 November 2018"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+## Setting root directory for whole notebook
+wd <- getwd()
+knitr::opts_knit$set(root.dir = wd)
+
+library(rmarkdown)
+library(knitr)
+library(tidyverse)
+library(pander)
+library(RColorBrewer)
+
+## Loading the data
+setwd(paste(wd, "/Data", sep = ""))
+files <- list.files(pattern=c("HHS","*.csv"))
+df <- read.csv(files[length(files)])
+
+
+criteria <- read.csv("Farmer_Selection_Criteria_2018-10-18.csv")
+
+## Reference file to fix weird date format in data entry
+dateopt <- read.csv("Ref_dateopt_conversion.csv")
+
+## Reference file for full church names
+churchnames <- read.csv("Ref_church.csv")
+building <- read.csv("Ref_building.csv")
+condition <- read.csv("Ref_condition.csv")
+setwd("..")
+
+
+# DATA CLEANING
+
+## Fixing bulky headers
+colnames(df) <- sub("Moringa_Survey.", "", colnames(df))
+df$name <- paste(df$general.name_f, df$general.name_l, sep = " ")
+
+## Fixing data upload bug errors (fault of ODK Collect + Google Drive) with multiple choice options for agri_crops, sav_types, mga_benefits
+# Multiple choice options from savings.sav_types are being converted into date format. Replacing those values with the proper choices
+new <- df
+indx <- match(new$savings.sav_types, dateopt$date, nomatch = 0)
+colnames(new)[colnames(new) == "savings.sav_types"] <- "savings.sav_types_OLD"
+new$savings.sav_types <- dateopt$options[indx]
+df2 <- new
+
+# Remove 200X year formats for income.agri_crops and moringa.mga_benefits
+df2$income.agri_crops <- sub(" 200", " ", df2$income.agri_crops)
+df2$moringa.mga_benefits <- sub(" 200", " ", df2$moringa.mga_benefits)
+
+## Fixing strings to title case
+df2$general.village <- str_to_title(df2$general.village)
+
+## Adding plain language names
+df2 <- left_join(df2, churchnames, by = c("religion.christian_church" = "Church")) %>% 
+  left_join(., building, by = c("household.hh_walls" = "Choice")) %>% 
+  left_join(., building, by = c("household.hh_roof" = "Choice")) %>% 
+  left_join(., condition, by = c("household.hh_condition" = "Choice"))
+
+names(df2)[names(df2) == "Material.x"] <- "wallmaterial"
+names(df2)[names(df2) == "Material.y"] <- "roofmaterial"
+
+df2$general.program_name <- recode(df2$general.program, `1` = "Participant", `0` = "Non-Participant")
+
+
+```
+
+
+# Executive Summary
+In October of 2018, Don Bosco, in partnership with WARC, kickstarted a 3-year project on establishing a moringa outgrower network in the local communities nearby to Bo city, in Sierra Leone. With a proven farmer extension methodology, the project aims to encourage farmers to grow moringa on their lands for both consumption and for sale. The increased nutritional intake or income from growing moringa will elevate the farmers' standard of living.
+
+# Key program personnel
+
+## Don Bosco
+Don Bosco is the key partner in this project. The administrative side is made up of Director **Andreas Schnier** and Project Manager **Ibrahim Tucker**, who both work in Don Bosco's Freetown office. They oversee the long-term implementation of the project, ranging from the budget, to construction of the Don Bosco site, to the eventual distribution of moringa.
+
+The Salesian Fathers of Don Bosco oversee the implementation of community programs in Bo. The three Fathers are **Father Antonio**, **Father Chris**, and **Father Joe**. Father Antonio is the most familiar with the communities in the moringa project as he has been a mainstay of the area for over 4 years, conducting masses and providing counseling support for couples and troubled youth within the communities.
+
+## WARC
+WARC's main role in this project is to provide the necessary agricultural expertise needed for the management of farmers as well as for the cultivation of moringa. **Mireia Romañach** is the Project Manager on the project, overseeing coordination of the Farmer Connectors, the project implementation timeline, and other matters that are required for the project to carry on smoothly. **Anthea Piong** is the Monitoring and Evaluation Manager for the project. She carries out the design and implementation of surveys, managing the data collection, and conducting data analysis and reporting.
+
+## Farmer Connectors
+The three farmer connectors are key to the high-touch extension methodology of the program. They will help to lead and organise farmer groups, conduct workshops, and regularly check up on each farmers' progress throughout the duration of the project. They are the main liaison between the farmers and the project managers, and are the first line of defense for any problems or questions the farmers may have along the way.
+
+The farmer connectors are **Andreta**, **James**, and **John**. All of them are Sierra Leonean, live in Bo, and speak the local languages fluently in addition to English. All of them have strong leadership qualities and are able to inspire, counsel, and guide the farmers throughout the project.
+
+## Community Leaders
+The community teachers are informal leaders in the communities. They all teach at the local schools, and have been working with Father Antonio for a number of years now on various school and counseling programs. They are well respected within their communities, are literate, and know the farmers and their households on a personal and individual basis. The dissemination of information to the farmers is mainly done through the community teachers, as they are also usually the only ones within their community who own mobile phones.
+
+
+# Community areas
+The community villages are about an hour's drive (on bumpy dirt roads) southwest of Bo. The main villages targeted in this project are:
+
+* Barlie
+* Lembema
+* Morjibeh
+* Ndandabu
+* Niagolehun
+* Potahun
+* Tikonko and
+* Youviama. 
+
+The map (Fig. 1) below shows how the villages are spread out geographically, as well as the kind of road access available to each village. The distances and the travel time between villages is good to know as background information, and this will help in your visualisation and understanding of the data presented in this report.
+
+
+![Fig. 1 -- Map of Bo Community Areas](`r paste(wd, "/" ,"Map of Bo community areas_2018-11-09-01.jpg", sep="")`)
+
+# M&E Methodology
+
+## The Baseline Household Survey
+The Baseline Household Survey aims to capture information on measures like income, age, nutritional patterns, and other behaviours, to get a good idea of what households look like at the start of the Don Bosco moringa project. The survey was administered to both non-participating households, as well as participating moringa farmers about to enter the program.
+
+For non-participating households, surveys should be administered only once a year in October, one per household, and all within a 1-2 week period. In following years, the same households should be surveyed again.
+
+For participating farmers, each farmer will need to take the survey at the time of enrolment. At the time of the survey, none of the participating farmers had attended any workshops on moringa or had planted moringa seeds yet. If a non-participating household member decides to join the program and be a moringa farmer in later years, he or she will need to take the Household Survey again.
+
+WARC conducted a short 30-question survey in October/November 2018 at the start of the program at farmer enrolment. The survey lasted approximately 6-10 minutes each, and both program participants and non participants were surveyed. The questions were grouped into these sections:
+
+* Demographic
+* Household
+* Religion
+* Income
+* Savings
+* Consumption
+* Moringa
+
+WARC invited Don Bosco to participate in the survey design process, and as such, gathered input from both the Don Bosco administrative team in Freetown as well as with the Salesian Fathers in Bo. The Fathers utilised this opportunity and requested for some questions to be added to this survey to gather useful information on the communities that would be helpful in their other programs. As such, the sections with questions on religion and on school-going children were added to aid the Fathers' understanding of the Bo community areas.
+
+
+## Farmer selection
+A number of announcements and interviews were held with the farmers to assess their willingness to participate and their ability to meet the selection criteria. The criteria we used is shown in Table 1 below.
+
+```{r, echo = FALSE}
+names(criteria) <- gsub("Level.of.priority", "Priority", names(criteria))
+
+kable(criteria, caption = "Table 1 -- Farmer Selection Criteria")
+```
+
+
+We found that most farmers met the above selection criteria; however, it was mainly the farmers' demonstrated motivation and willingness to be a part of the program that was a deciding factor for whether they would be accepted to the program or not. A farmers' commitment to the program can be seen through their attendance to meetings and interviews. Thus, if a farmer did not show up for scheduled meetings or was not present to answer the baseline survey, then they were not considered for the current round of program enrolment. Nevertheless, the exclusion from this current enrolment period does not preclude them from joining in a later round, such as in the second half of Year 1 or in subsequent years. Both WARC and Don Bosco felt that it was necessary to be strict about this early on, so that we send a clear message to the farmers that we are serious about the project, and that they should be too.
+
+
+```{r, echo = FALSE}
+
+df2$name <- paste(df2$general.name_f, df2$general.name_l, sep = " ")
+
+prog_part <- sum(df2$general.program == 1)
+non_part <- sum(df2$general.program == 0)
+
+```
+
+
+In this round, data were collected on `r prog_part` program Participants, and `r non_part` Non-Participant household members (also known as the control group).
+
+The Y1 target number of participant farmers is 100. In October 2018, we did a partial enrolment of the `r prog_part` farmers. The remainder of the farmers needed to reach our Y1 target will be enrolled in a second phase to take place around January 2019.
+
+A good sample size of control group (non-participating) households by the end of the program in 2021 would be at least 30. As such, the target number of non-participating households in Year 1 that we are targeting is inflated to 200. This target is significantly higher as we need to account for attrition (dropping out of the control group to participate in the program, or inability to follow up with households due to reasons such as migration) over the 3-year duration of the program. At the time of the writing of this report, we only have `r non_part` households, but data collection is intended to continue in the following weeks to get us closer to our target sample size for Year 1.
+
+Participant farmers were the first to be surveyed. We already had an existing list of farmers, with details such as their name, village, and contact person (i.e. the community teachers(s)). The three farmer connectors were assigned to groups of farmers and were responsible for scheduling survey time slots with our enumerator, Leah. Survey days were planned around the geographic location of the villages and their proximity to each other. The farmers were given advanced notice of the survey days and times, and completion of the survey was a requirement of program enrolment.
+
+Once the Participant farmer surveys were completed, we proceeded to collect data on the Non-Participant households. Since we do not have information on the non-participants (such as names or contact information), surveys were conducted "cold" by showing up to the villages and surveying those who were around to take them. Some days were less successful as others, as farmers would tend to leave their homes early in the day to tend to their farm, often a few kilometres away from the village where they live. 
+
+# Results
+
+## Basic Demographics
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+df3 <- df2
+
+df3$general.age <- as.Date(df3$general.age, "%d/%m/%Y")
+
+# Need to make correction for Sheku Smart and Magaret Muda's birth year -- it's not 2018!
+df3$general.age[df3$name == "Sheku Smart"] <- as.Date(format(as.Date("1950-09-29"), "%Y/%m/%d"))
+df3$general.age[df3$name == "Magaret Muda"] <- as.Date(format(as.Date("1950-02-08"), "%Y/%m/%d"))
+
+# Generating age column
+df3$age <- floor((Sys.Date() - df3$general.age)/365)
+
+# Recoding values to names
+df3$general.male <- recode(df3$general.male, `1` = "Male", `0` = "Female")
+df3$household.hh_head <- recode(df3$household.hh_head, '1' = "Head", `0` = "Non-Head")
+df3$household.hh_condition_names <- recode(df3$household.hh_condition, '1' = "Very good", '2' = "Good", '3' = "Needs minor repairs", '4' = "Weak", '5' = "Very weak", '6' = "I don't know")
+df3$income.inc_freq_names <- recode(df3$income.inc_freq, '1' =	"Daily", '2'	= "Weekly", '3'	= "Monthly", '4' =	"Twice a year", '5' = "Once a year")
+
+
+# Transforming % of children who go to school per household
+df3$children_pct <- df3$household.hh_children_school/df3$household.hh_children*100
+
+## Splitting data out into different dataframes, by participation
+df3_part <- filter(df3, general.program == "1")
+df3_nonpart <- filter(df3, general.program == "0")
+
+df3$general.program_f <- factor(df3$general.program_name, levels=c("Participant", "Non-Participant"))
+df3$household.hh_head_f <- factor(df3$household.hh_head, levels=c("Male", "Female"))
+df3$household.hh_condition_names_f <- factor(df3$household.hh_condition_names, levels=c("Very good", "Good", "Needs minor repairs", "Weak", "Very weak", "I don't know"))
+df3$income.inc_freq_names_f <- factor(df3$income.inc_freq_names, levels=c("Daily", "Weekly", "Monthly",	"Twice a year", "Once a year"))
+```
+
+
+### Gender
+
+There is a big difference in the gender composition of our Participant and Non-Participant respondents, as you can see in Fig. 2 below.
+
+The high ratio of males to females for Participants might be due to the fact that the head of the household tends to take on more responsibility in managing the affairs of the program requirements, and these heads of household will tend to be male. As mentioned earlier, the surveys that were conducted for the Participant households was more methodical as we had an existing list of selected farmers who we called on to show up.
+
+As for the Non-Participant households, surveys were conducted by visiting the village communities and surveying whoever was available. The high ratio of females to males here could be explained by more women staying at home during the day while the men are out in the field.
+
+Nevertheless, the higher ratio of Participant males who took the survey should not be taken as an indicator of gender inequality. Preference in program enrolment was given to farmers who were part of a couple, so that the labour could be shared between the husband and the wife.
+
+```{r}
+df3 %>% filter(!is.na(df3$household.hh_head)) %>% 
+  ggplot(aes(general.male, fill = household.hh_head)) +
+  geom_bar(width = 0.5) +
+  facet_grid(. ~ general.program_f) +
+  theme_minimal() +
+  theme(panel.spacing = unit(2, "lines"), panel.grid.major.x = element_blank(), legend.title = element_blank()) +
+  labs(y = "Number of Farmers", x = "") +
+  ylim(0, 80) +
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+_Fig. 2 - Gender and head of household status of respondents, by program participation_
+
+
+### Age
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+df3 %>% ggplot(., aes(age)) +
+  geom_bar() +
+  theme_minimal() +
+  labs(x = "Age", y = "Number of Farmers") +
+  scale_y_continuous(breaks = c(0, 2, 4, 6, 8, 10))
+```
+
+_Fig. 3 -- Distribution of Participant farmer ages_
+
+Participant farmers are aged **`r min(df3_part$age)`** to **`r max(df3_part$age)`**, and the median age is **`r round(median(df3_part$age), digits = 0)`**.
+
+Age was one of the criteria for program participation, but it was a lower priority than the others. We did not want to select someone who was too young as they may not yet have reached the level of maturity needed to participate seriously in the program. Younger people also are likely to move about, get full-time jobs, or enrol in further education. We also did not want to select someone who was too old. Older farmers may not be as strong or able-bodied to carry out the strenuous and labour-intensive work of farming. However, the older Participant farmers who were selected had larger families they could rely on for help with labour, and so they were allowed to enter the program.
+
+
+## Education
+
+```{r, echo = FALSE}
+
+df3_part %>% ggplot(., aes(general.edu)) +
+  geom_bar(stat = "count") +
+  theme_minimal() +
+  labs(x = "Years of Education", y = "Number of Farmers") +
+  geom_text(aes(label = ..count..), stat = "count", vjust = -0.5) +
+  ylim(0, 30)
+
+# df3 %>% ggplot(., aes(general.edu)) +
+#   geom_bar() +
+#   facet_grid(. ~ general.program) +
+#   theme_minimal()
+
+```
+
+_Fig. 4 -- Distribution of Participant farmer years of education_
+
+```{r, eval = FALSE , echo = FALSE}
+
+sum(df3_part$general.edu == 0)
+
+mean(df3_part$general.edu)
+
+```
+
+Many of the farmers are uneducated, with **`r sum(df3_part$general.edu == 0)`** of them having 0 years of education. The average farmer participant has **`r round(mean(df3_part$general.edu), digits = 1)`** years of education. Out of the `r sum(df3_part$general.edu > 10)` Participant farmers with more than 10 years of education, 5 of them are community teachers and 1 is a religious leader.
+
+
+## Religion
+
+```{r, eval = FALSE, echo = FALSE}
+
+# sum(df3_part$religion.christian == "1")
+# 
+# table(df3_part$religion.christian)
+
+# df3_part %>% ggplot(., aes(religion.christian)) +
+#   geom_bar() +
+#   facet_grid(. ~ general.village)
+
+```
+
+Of the `r prog_part` Particpant farmers, **`r sum(df3_part$religion.christian == "1")`** (`r round(sum(df3_part$religion.christian == "1")/prog_part*100, digits = 0)`%) are Christian.
+
+This table below shows where Participant farmers live, and where they attend church.
+
+
+```{r, message = FALSE, warning = FALSE}
+
+churchtable <- table(df3_part$Church.Name, df3_part$general.village)
+
+# pander(tabular(churchtable))
+# pandoc.table(churchtable, style = "simple")
+
+```
+
+_Table 2 -- Church attendance of Participant farmers, by village and church_
+
+`r kable(churchtable)`
+
+## Children going to school
+A key part of the Don Bosco mission is in childrens' education and in particular, enrolment and time taken to get to school.
+
+To calculate school attendance, two questions were asked:
+
+> How many children are there in your household?
+
+and
+
+> How many children in your household currently go to school?
+
+The responses were then used to calculate the percentage of children who attend school within a household.
+
+**`r sum(df3_part$household.hh_children > 0)`** out of `r prog_part` Participant households reported having children. The total number of children in Participant households is **`r sum(df3_part$household.hh_children)`**, giving an average of **`r round(sum(df3_part$household.hh_children)/sum(df3_part$household.hh_children >0), digits = 1)`** children per household.
+
+As for Non-Participant households, `r sum(df3_nonpart$household.hh_children > 0)` households reported having children, with a total number of `r sum(df3_nonpart$household.hh_children)` children, and an average size of `r round(sum(df3_nonpart$household.hh_children)/sum(df3_nonpart$household.hh_children >0), digits = 1)` children per household.
+
+The graph below shows these percentages broken down by village as well as by program participation.
+
+```{r, warning= FALSE}
+df3 %>%  ggplot(aes(general.village, children_pct)) +
+  geom_count(aes(color = ..n.., size = ..n..)) +
+  guides(col = guide_legend(reverse = T, title = "Count"), size = guide_legend(reverse = T, title = "Count")) +
+  # scale_colour_gradientn(colours = RColorBrewer::brewer.pal(20, "BrBG")) +
+  scale_colour_viridis_c(direction = -1) +
+  facet_grid(. ~ general.program_f) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle=45, vjust=1.2, hjust = 1.2), panel.spacing = unit(2, "lines")) +
+  labs(y = "Percent of Children", x = "") 
+
+```
+
+_Fig. 5 -- Percent of children going to school per household, by program participation and village_
+
+The size of the circles in Fig. 5 represents the number of households at that percentage level seen on the y-axis. We can see that both Participant and Non-Participant households look quite similar, with most households having a 100% school attendance rate for their children.
+
+But, there are still a few outliers. For Participant households, there are `r sum(df3_part$children_pct == "0")` households where none of the children attend school. For Non-Participant households, the village of Niagolehun has lower enrollment rates than the others, with a total of `r sum(df3_nonpart$children_pct < "50" & df3_nonpart$general.village == "Niagolehun")` households in Niagolehun having less than half their children enrolled. This could signal to Don Bosco that Niagolehun might benefit from having a school built nearby.
+
+Nevertheless, most households reported enrollment rates of 50% or more, and **`r sum(df3_part$children_pct == "100")`** Participant households had a 100% enrollment rate.
+
+As for distance from school, the table below shows the length of time it takes the children of Participant households to get to school. The data looks good, as most of the children take under an hour to get to school every day. There are `r sum(df3_part$household.hh_children_school_commute == "3")` children who take more than 2 hours to get to school every day; one from Barlie, and the other from Ndandabu. In addition, it looks like Lembema has an unusually high number of children who take 1-2 hours to get to school. Lembema is a fairly large village which has its own school, so we wouldn't expect there to be so many children who take over 1 hour to get to school. Further investigation can be done to find out the ages of these children (to understand which level of schooling they need), house location (Lembema is quite spread out), and the location of the school they are attending. It is a possibility that these children are older and perhaps need to walk to Tikonko or elsewhere to attend the appropriate schools for their age.
+
+```{r, echo = FALSE}
+# kable(table(df3_part$household.hh_children_school_commute, df3_part$general.village))
+# 
+# table(df3_part$household.hh_children_school_commute, df3_part$general.village)
+kable(table(df3$household.hh_children_school_commute, df3$general.village))
+
+```
+
+_Table 3 -- Commute times for schoolchildren, by village_
+
+`r kable(table(df3$household.hh_children_school_commute, df3$general.village))`
+
+
+## Wealth, Income, and Savings
+The financial status of each participant is a useful indicator to understand, as the program's main goal is to help farmers generate more income for themselves. However, these are difficult indicators to measure especially in the rural villages where employment and income tend to be informal, seasonal, or intermittent. As such, we measure wealth, income, and savings in these ways:
+
+* Wealth - Materials and condition of housing
+* Income - Sources (primary and secondary) of income, and frequency
+* Savings - Method(s) of saving
+
+# Housing as a proxy for wealth
+Observing the materials used in building a house is a well-established approximation for wealth in development research and literature. The relative quality and cost of the materials follows this descending order (best material on top):
+
+For wall building material:
+
+* Cement blocks/concrete
+* Mud bricks
+* Wood sticks
+* Mud and sticks
+* Mud and straw
+
+
+For roof building material:
+
+* Cement blocks/concrete
+* Iron/Zinc
+* Thatch
+* Tarp
+
+
+```{r, echo = FALSE}
+# 
+# kable(table(df3_part$wallmaterial), caption = "Wall Material")
+# 
+# kable(table(df3_part$roofmaterial), caption = "Roof Material")
+
+# 
+# kable(table(df3_part$wallmaterial, df3_part$roofmaterial), caption = "Housing materials for participants")
+# 
+# kable(table(df3_nonpart$wallmaterial, df3_nonpart$roofmaterial), caption = "Housing materials for non-participants")
+
+
+```
+
+_Table 4 -- Building materials for housing for Participants and Non-Participants_
+
+`r kable(table(df3_part$wallmaterial, df3_part$roofmaterial), caption = "Housing materials for participants")`
+
+
+`r kable(table(df3_nonpart$wallmaterial, df3_nonpart$roofmaterial), caption = "Housing materials for non-participants")`
+
+
+
+
+At the time of this survey, both Participant and Non-Participant households are very similar with regard to the build of their houses. Most respondents had Iron/Zinc roofs, and the main structure of the house tended to be made with mud and a combination of some other material (sticks or straw).
+
+There are still a significant number of respondents in both groups who have thatched roofs. This will be an interesting indicator to monitor over the duration of this project as the roof is more easily replaceable than the main structure of the house, and is a good sign that the farmer/inhabitant has enough extra savings to invest in an upgrade.
+
+The condition of the houses also do not vary much between the two groups. As seen in Fig. 5 below, most of the houses are in either Good or in Weak condition. The responses here are all self-reported, as we did not asses the houses ourselves according to any standardised rubric. Nevertheless, this tells us that many of those surveyed felt like their homes could be improved further. It will be interesting to monitor this also over the coming years, so see if responses eventually shift out of the Weak category and into the Good or Very Good categories.
+
+```{r, echo = FALSE}
+# kable(table(df3$household.hh_condition, df3$general.program_f))
+
+# 1	Very good
+# 2	Good
+# 3	Needs minor repairs
+# 4	Weak
+# 5	Very weak
+# 6	I don't know
+
+df3 %>% ggplot(aes(household.hh_condition_names_f, fill = household.hh_condition_names_f)) +
+  geom_bar() +
+  facet_grid(. ~ general.program_f) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), panel.spacing = unit(2, "lines"), panel.grid.major.x = element_blank(), legend.title = element_blank()) +
+  labs(y = "Number of Farmers", x = "House Condition") +
+  scale_fill_brewer(palette = "PuBu", direction = -1) +
+  ylim(0, 42) +
+  geom_text(aes(label = ..count..), stat = "count", vjust = -0.5)
+
+
+```
+
+_Fig. 5 - General House Condition by Program Participation_
+
+# Income
+
+To get to these community areas from Bo (the nearest city) takes approximately 1 - 1.5 hours by car, and on bumpy roads. By foot, the journey will take even longer. It is thus very unlikely that the people living in these communities are able to travel to Bo to find formal (or even informal) employment. So to get a better sense of how farmers earn their living, we asked a few questions about income payment frequency and primary employment.
+
+```{r, echo = FALSE}
+# 1	Rice
+# 2	Corn/Maize
+# 3	Vegetables (cassava leaves, potatoes, etc.)
+# 4	Soy
+# 5	Fruits
+# 6	Nuts
+# 7	Peppers
+# 0	Other
+# 
+# 
+# 1	Consume all
+# 2	Sell all
+# 3	Consume some, sell some
+# 
+# 
+# 1	Agriculture
+# 2	Shopowner
+# 3	Service (keke, okada, hair, etc.)
+# 4	Teacher
+# 5	Labourer
+# 6	Crafts (tailor, wood carver, etc.)
+# 7	Support from family
+# 0	Other
+# .	None
+# 
+# 1	Daily
+# 2	Weekly
+# 3	Monthly
+# 4	Twice a year
+# 5	Once a year
+
+# table(df3_part$income.inc_freq)
+
+df3 %>% ggplot(aes(income.inc_freq_names_f, fill = income.inc_freq_names_f)) +
+  geom_bar() +
+  facet_grid(. ~ general.program_f) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), panel.spacing = unit(2, "lines"), panel.grid.major.x = element_blank(), legend.title = element_blank()) +
+  labs(y = "Number of Farmers", x = "Income Frequency") +
+  scale_fill_brewer(palette = "BuGn", direction = -1) +
+  geom_text(aes(label = ..count..), stat = "count", vjust = -0.5) +
+  ylim(0, 72)
+  
+
+# table(df3_nonpart$income.inc_pri)
+# 
+# table(df3_part$income.inc_sec)
+
+kable(table(df3_part$income.inc_pri))
+
+```
+
+_Fig. 6 -- Payday frequency for farmers, by village and program participation_
+
+Fig. 6 shows quite a surprising finding, which is that many of the farmers living in the communities (both Participants and Non-Participants alike) receive a monthly income. The expectation was that most respondents would receive some income either once or twice a year, corresponding with the harvest season.
+
+
+_Table 5 -- Primary and secondary sources of income for Participant farmers_
+
+`r kable(table(df3_part$income.inc_pri))`
+
+`r kable(table(df3_part$income.inc_sec))`
+
+
+The primary source of income for most respondents is Agriculture, as almost everyone is engaged in farming as a primary activity. And while there are a few community teachers who are also participating in this program as farmers, most of them do not actually receive an income from teaching, and as such, only one respondent answered with Teacher as a primary occupation. The secondary sources of income also show a bit more variety, although many farmers selected Agriculture for both a primary and a secondary income source. There is not enough information at the moment to know if this is a separate source of income, or if the question was misunderstood.
+
+# Savings
+
+```{r, echo = FALSE}
+# table(df3_part$savings.sav_types)
+
+# 1	Keep money at home
+# 2	Sou-sou
+# 3	Community savings group
+# 4	Keep seed crops
+# 5	Other
+# 0	I don't save
+
+
+sav1 <- length(grep("1", df3_part$savings.sav_types)) 
+sav2 <- length(grep("2", df3_part$savings.sav_types)) 
+sav3 <- length(grep("3", df3_part$savings.sav_types)) 
+sav4 <- length(grep("4", df3_part$savings.sav_types)) 
+sav5 <- length(grep("5", df3_part$savings.sav_types)) 
+sav0 <- length(grep("0", df3_part$savings.sav_types)) 
+
+```
+The question in this survey about savings was very simply:
+
+> How do you save?
+
+The respondent could select more than one answer from these choices:
+
+* Keep money at home
+* Sou-sou
+* Community savings group
+* Keep seed crops
+* Other
+* I don't save
+
+Both sou-sou and community savings groups are informal types of saving mechanisms common in rural areas where access to a bank or official financial institutions is low. The sou-sou is a savings club where all members contribute an equal amount of money on a schedule (can be bi-weekly, monthly, etc.) into a common fund, and the total pool is paid out to one member on an agreed-upon rotating basis.
+
+The community savings group is a slightly different tool from the sou-sou, and is a bit more formal like a bank. The group agrees on the frequency and amount of deposits for all members. A group member may take out a loan from the bank, but will have to pay back the amount to the group with interest.
+
+For Participants, these were their tallys:
+
+* Keep money at home: **`r sav1`**
+* Sou-sou: **`r sav2`**
+* Community savings group: **`r sav3`**
+* Keep seed crops: **`r sav4`**
+* Other: **`r sav5`**
+* I don't save: **`r sav0`**
+
+Most Participant farmers reported practicing one or more ways of saving. The Community Savings Group was by far the most popular method of saving, with over half the Participants using that method. No farmers reported keeping seed crops as a method of saving.
+
+
+## Nutritional Consumption
+
+```{r}
+# consumption <- df3 %>% 
+#   select(general.program_name, consumption.cons_eggs, consumption.cons_fish, consumption.cons_meat, consumption.cons_fruits)
+# 
+# table(df3_nonpart$consumption.cons_eggs)
+# table(df3_nonpart$consumption.cons_fish)
+# table(df3_nonpart$consumption.cons_meat)
+# table(df3_nonpart$consumption.cons_fruits)
+
+```
+To get an idea of a typical farmers' nutritional intake, we asked a few questions relating to consumption frequency of 4 key food groups in Sierra Leone: Eggs, Fish, Meat, and Fruits. It is a given that every Sierra Leonean eats lots of rice and stewed greens (such as cassava leaves or other _plassas_), so that question was not included in the survey.
+
+The only food group which everyone consumed daily was fish. However, the two other proteins we asked about -- eggs and meat -- were consumed mostly once a month or once a year.
+
+Participants and Non-Participants had similar consumption patterns, but Participants seemed to eat meat, eggs, and fruits slightly more frequently than Non-Participants.
+
+
+## Moringa Knowledge and Consumption
+
+Lastly, we wanted to know if Participant farmers knew about moringa, and if they did, how much did they know about it.
+
+Most Participants surveyed had heard of moringa before. The `r sum(df3_part$moringa.mga == "1")` who had heard of moringa proceeded to the next question which asked them what attributes of moringa they knew about. They were allowed to select multiple responses, and the enumerator was trained not to prompt respondents for answers.
+
+```{r, echo = FALSE}
+
+# 1	Source of protein
+# 2	Good for pregnant women
+# 3	Good for children
+# 4	Source of iron
+# 5	Source of important vitamins
+# 6	Source of calcium
+# 7	Cure/prevention for malaria
+# 8	Relieves stuffy nose or flu
+# 0	I don't know
+
+mga1 <- as.numeric(length(grep("1", df3_part$moringa.mga_benefits)))
+mga2 <- as.numeric(length(grep("2", df3_part$moringa.mga_benefits)))
+mga3 <- as.numeric(length(grep("3", df3_part$moringa.mga_benefits)))
+mga4 <- as.numeric(length(grep("4", df3_part$moringa.mga_benefits)))
+mga5 <- as.numeric(length(grep("5", df3_part$moringa.mga_benefits)))
+mga6 <- as.numeric(length(grep("6", df3_part$moringa.mga_benefits)))
+mga7 <- as.numeric(length(grep("7", df3_part$moringa.mga_benefits)))
+mga8 <- as.numeric(length(grep("8", df3_part$moringa.mga_benefits)))
+mga0 <- as.numeric(length(grep("0", df3_part$moringa.mga_benefits)))
+
+
+moringa_freq <- c(mga1, mga2, mga3, mga4, mga5, mga6, mga7, mga8, mga0)
+moringa_names <- c("Source of protein", "Good for pregnant women", "Good for children", "Source of iron", "Source of important vitamins", "Source of calcium", "Cure/prevention for malaria", "Relieves stuffy nose or flu", "I don't know")
+
+moringa <- data.frame(moringa_names, moringa_freq)
+moringa <- arrange(moringa, desc(moringa$moringa_freq))
+
+#  kable(moringa)
+```
+_Table 6 -- Participant farmers' understanding of moringa_
+
+`r kable(moringa)`
+
+
+
+Interestingly, most Participants believed that moringa could be used to cure or prevent malaria. This is not confirmed by the scientific community, and may just be a commonly held belief recommended by traditional village doctors. Still, we will look into this in more detail, and the confirmation or the correction of this attribute will be communicated during one of the many workshops as part of the program.
+
+For the other properties of moringa that are proven, such as being a source of calcium, protein, and iron, it did not look like these were well-known by the farmers. It may be that the farmers don't have a good foundational understanding of nutritional science, and may not distinguish between proteins, calcium, or iron. The lack of knowledge here is not necessarily a bad thing, as this signals a gap that can be filled by a workshop on the nutritional benefits of moringa.
+
+The options that were more general did receive more "votes", such as moringa being good for pregnant women, children, and being a source of vitamins. Knowing about who should consume moringa is definitely a good sign of basic knowledge and interest, and the workshops can continue to build on this understanding.
+
+Next, we asked the farmers about their consumption patterns of moringa. Participant farmers -- by far -- were already consuming moringa at rates higher than Non-Participants. `r sum(df3_nonpart$moringa.mga == "0")` of the Non-Participants answered that they had not heard of moringa before, so they did not have to answer further questions about their consumption patterns. But of the remaining `r sum(df3_nonpart$moringa.mga == "1")` Non-Participatns who said they had heard of moringa before, `r sum(df3_nonpart$moringa.mga_cons_freq == "0")` answered that they never consume moringa (the 49th person answered with "I Don't Know").
+
+This is quite an encouraging finding, as this shows that Participant farmers already have a general interest in moringa, and already consume it with some frequency. Still, many farmers do not currently consume moringa, and it is our hope that with the coming months and years that farmers will begin to consume moringa more often while also learning more about it and its benefits.
+
+
+```{r, echo = FALSE}
+mga1 <- as.numeric(length(grep("1", df3_part$moringa.mga_cons_pattern)))
+mga2 <- as.numeric(length(grep("2", df3_part$moringa.mga_cons_pattern)))
+mga3 <- as.numeric(length(grep("3", df3_part$moringa.mga_cons_pattern)))
+mga4 <- as.numeric(length(grep("4", df3_part$moringa.mga_cons_pattern)))
+mga0 <- as.numeric(length(grep("0", df3_part$moringa.mga_cons_pattern)))
+
+#  table(df3_part$moringa.mga_cons_pattern)
+```
+
+For those who do consume moringa, the preferred method was to eat the leaves, or to drink it as tea.
+
+For those who did not consume moringa, we asked what were their reasons. This question was multiple-choice and these were the options:
+
+* It is too expensive
+* I don't know about moringa
+* I don't know where to get moringa
+* I don't know how to prepare moringa
+* I don't like moringa
+* I don't know
+
+```{r, echo = FALSE}
+# 1	It is too expensive
+# 2	I don't know about moringa
+# 3	I don't know where to get moringa
+# 4	I don't know how to prepare moringa
+# 5	I don't like moringa
+# 0	I don't know
+
+mga1 <- as.numeric(length(grep("1", df3_part$moringa.mga_no_cons)))
+mga2 <- as.numeric(length(grep("2", df3_part$moringa.mga_no_cons)))
+mga3 <- as.numeric(length(grep("3", df3_part$moringa.mga_no_cons)))
+mga4 <- as.numeric(length(grep("4", df3_part$moringa.mga_no_cons)))
+mga5 <- as.numeric(length(grep("5", df3_part$moringa.mga_no_cons)))
+mga0 <- as.numeric(length(grep("0", df3_part$moringa.mga_no_cons)))
+
+```
+
+For the Participant farmers who reached this question, these were their responses:
+
+* I don't know how to prepare moringa: **`r mga4`**
+* I don't know where to get moringa: **`r mga3`**
+* I don't know: **`r mga0`**
+
+It should be noted that the options not selected also provide significant insight into understanding the perception of moringa in the community. The fact that the other options were not selected at all tells us these things:
+
+* It is too expensive -- This means that: Moringa is affordable, or free
+* I don't know about moringa -- This means that: Farmers do know about the tree and how to recognise it
+* I don't like moringa -- This means that: Farmers are not adverse to the taste; personal preference is not a reason for non-consumption
+
+With the program, the two top responses for the non-consumption of moringa will be addressed as farmers will be taught preparation methods. And with their own farm of moringa trees, access to moringa should not be an issue anymore.
+
+# Conclusion
